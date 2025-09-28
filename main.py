@@ -9,6 +9,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 
+
+# ==============================
+# Setup
+# ==============================
+
 load_dotenv()
 
 USERNAME = os.getenv("APP_USERNAME")
@@ -22,35 +27,48 @@ if not USERNAME or not PASSWORD:
     sys.exit(1)
 
 
-def create_driver(chromedriver_path: str = CHROMEDRIVER_PATH):
+# ==============================
+# Driver / Utilities
+# ==============================
+
+def create_driver(download_subdir: str = "downloads"):
     options = Options()
     options.add_argument("--disable-search-engine-choice-screen")
-    # options.add_argument("--start-maximized")  # optional for debugging
-    service = Service(chromedriver_path)
+
+    # create subfolder inside CWD
+    download_path = os.path.join(os.getcwd(), download_subdir)
+    os.makedirs(download_path, exist_ok=True)
+
+    prefs = {
+        "download.default_directory": download_path,
+        "download.prompt_for_download": False,      # no popup
+        "download.directory_upgrade": True,         # overwrite old settings
+        "safebrowsing.enabled": True                # avoid Chrome blocking .exe/.zip
+    }
+    options.add_experimental_option('prefs', prefs)
+
+    service = Service(CHROMEDRIVER_PATH)
+
     return webdriver.Chrome(service=service, options=options)
 
 
-def safe_click(driver, element, wait: WebDriverWait = None):
-    """Try scroll -> normal click -> fallback to JS click if blocked."""
+def safe_click(driver, element):
+    """Scroll into view → normal click → fallback JS click if blocked."""
     try:
         driver.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});", element)
         element.click()
     except ElementClickInterceptedException:
-        # try waiting until clickable then click again
-        if wait:
-            try:
-                # no-op; we already have element
-                wait.until(EC.element_to_be_clickable((By.XPATH, ".")))
-            except Exception:
-                pass
-        # fallback: JS click
         driver.execute_script("arguments[0].click();", element)
 
 
+# ==============================
+# Workflows
+# ==============================
+
 def login(driver):
-    driver.get("https://demoqa.com/login")
     wait = WebDriverWait(driver, WAIT_SECONDS)
+    driver.get("https://demoqa.com/login")
 
     try:
         user_field = wait.until(
@@ -66,25 +84,20 @@ def login(driver):
     pass_field.clear()
     pass_field.send_keys(PASSWORD)
 
-    safe_click(driver, login_btn, wait=wait)
+    safe_click(driver, login_btn)
 
 
 def fill_text_box_form(driver):
     wait = WebDriverWait(driver, WAIT_SECONDS)
 
     try:
-        # avoid brittle absolute XPaths; prefer a shorter relative one if possible
         elements_panel = wait.until(EC.element_to_be_clickable(
-            # example selector; adjust to actual site
             (By.CSS_SELECTOR, "div.element-group")))
         elements_panel.click()
 
         text_box_item = wait.until(
             EC.element_to_be_clickable((By.ID, "item-0")))
-        # text_box_item.click()
-
-        driver.execute_script(
-            "arguments[0].click()", text_box_item)
+        safe_click(driver, text_box_item)
 
         fullname_field = wait.until(
             EC.visibility_of_element_located((By.ID, "userName")))
@@ -107,41 +120,38 @@ def fill_text_box_form(driver):
     permanent_address_field.clear()
     permanent_address_field.send_keys("Matatag Street Pinyahan Quezon city")
 
-    safe_click(driver, submit_btn, wait=wait)
-
-    # x = driver.find_elements(By.CSS_SELECTOR, 'div.element-group')
-    # x[1].click()
+    safe_click(driver, submit_btn)
 
 
-def download(driver):
+def download_file(driver):
     wait = WebDriverWait(driver, WAIT_SECONDS)
 
     try:
-
         elements_group = driver.find_elements(
             By.CSS_SELECTOR, 'div.element-group')
+        elements_group[0].click()  # first group only
 
-        elements_group[0].click()
-
-        links = wait.until(EC.visibility_of_element_located((By.ID, 'item-7')))
-
-        links.click()
+        links = wait.until(EC.element_to_be_clickable((By.ID, 'item-7')))
+        safe_click(driver, links)
 
         download_button = wait.until(
-            EC.visibility_of_element_located((By.ID, 'downloadButton')))
-
-        download_button.click()
+            EC.element_to_be_clickable((By.ID, 'downloadButton')))
+        safe_click(driver, download_button)
 
     except TimeoutException as exc:
-        raise RuntimeError("Form elements not found (timeout)") from exc
+        raise RuntimeError("Download elements not found (timeout)") from exc
 
+
+# ==============================
+# Main
+# ==============================
 
 if __name__ == "__main__":
-    driver = create_driver()
+    driver = create_driver("my_files")
     try:
         login(driver)
-        fill_text_box_form(driver)
-        download(driver)
-        input("Press enter to close the browser")
+        fill_text_box_form(driver)   # comment this out if not needed
+        download_file(driver)        # comment this out if not needed
+        input("Press Enter to close the browser...")
     finally:
         driver.quit()
