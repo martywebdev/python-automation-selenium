@@ -18,7 +18,8 @@ load_dotenv()
 
 USERNAME = os.getenv("APP_USERNAME")
 PASSWORD = os.getenv("APP_PASSWORD")
-CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "chromedriver-win64/chromedriver.exe")
+CHROMEDRIVER_PATH = os.getenv(
+    "CHROMEDRIVER_PATH", "chromedriver-win64/chromedriver.exe")
 WAIT_SECONDS = int(os.getenv("WAIT_SECONDS", "10"))
 
 if not USERNAME or not PASSWORD:
@@ -30,18 +31,32 @@ if not USERNAME or not PASSWORD:
 # Driver / Utilities
 # ==============================
 
-def create_driver():
+def create_driver(download_subdir: str="downloads"):
     options = Options()
     options.add_argument("--disable-search-engine-choice-screen")
+
+      # create subfolder inside CWD
+    download_path = os.path.join(os.getcwd(), download_subdir)
+    os.makedirs(download_path, exist_ok=True)
+
+    prefs = {
+        "download.default_directory": download_path,
+        "download.prompt_for_download": False,      # no popup
+        "download.directory_upgrade": True,         # overwrite old settings
+        "safebrowsing.enabled": True                # avoid Chrome blocking .exe/.zip
+    }
+    options.add_experimental_option('prefs', prefs)
+
     service = Service(CHROMEDRIVER_PATH)
-    driver = webdriver.Chrome(service=service, options=options)
-    return driver
+    
+    return webdriver.Chrome(service=service, options=options)
 
 
 def safe_click(driver, element):
     """Scroll into view → normal click → fallback JS click if blocked."""
     try:
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});", element)
         element.click()
     except ElementClickInterceptedException:
         driver.execute_script("arguments[0].click();", element)
@@ -56,11 +71,13 @@ def login(driver):
     driver.get("https://demoqa.com/login")
 
     try:
-        user_field = wait.until(EC.visibility_of_element_located((By.ID, "userName")))
-        pass_field = wait.until(EC.visibility_of_element_located((By.ID, "password")))
+        user_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "userName")))
+        pass_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "password")))
         login_btn = wait.until(EC.element_to_be_clickable((By.ID, "login")))
-    except TimeoutException:
-        raise RuntimeError("Login page elements not found (timeout)")
+    except TimeoutException as exc:
+        raise RuntimeError("Login page elements not found (timeout)") from exc
 
     user_field.clear()
     user_field.send_keys(USERNAME)
@@ -74,19 +91,25 @@ def fill_text_box_form(driver):
     wait = WebDriverWait(driver, WAIT_SECONDS)
 
     try:
-        elements_panel = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.element-group")))
+        elements_panel = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, "div.element-group")))
         elements_panel.click()
 
-        text_box_item = wait.until(EC.element_to_be_clickable((By.ID, "item-0")))
+        text_box_item = wait.until(
+            EC.element_to_be_clickable((By.ID, "item-0")))
         safe_click(driver, text_box_item)
 
-        fullname_field = wait.until(EC.visibility_of_element_located((By.ID, "userName")))
-        email_field = wait.until(EC.visibility_of_element_located((By.ID, "userEmail")))
-        current_address_field = wait.until(EC.visibility_of_element_located((By.ID, "currentAddress")))
-        permanent_address_field = wait.until(EC.visibility_of_element_located((By.ID, "permanentAddress")))
+        fullname_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "userName")))
+        email_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "userEmail")))
+        current_address_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "currentAddress")))
+        permanent_address_field = wait.until(
+            EC.visibility_of_element_located((By.ID, "permanentAddress")))
         submit_btn = wait.until(EC.element_to_be_clickable((By.ID, "submit")))
-    except TimeoutException:
-        raise RuntimeError("Form elements not found (timeout)")
+    except TimeoutException as exc:
+        raise RuntimeError("Form elements not found (timeout)") from exc
 
     fullname_field.clear()
     fullname_field.send_keys("John Smith")
@@ -104,17 +127,19 @@ def download_file(driver):
     wait = WebDriverWait(driver, WAIT_SECONDS)
 
     try:
-        elements_group = driver.find_elements(By.CSS_SELECTOR, 'div.element-group')
+        elements_group = driver.find_elements(
+            By.CSS_SELECTOR, 'div.element-group')
         elements_group[0].click()  # first group only
 
         links = wait.until(EC.element_to_be_clickable((By.ID, 'item-7')))
         safe_click(driver, links)
 
-        download_button = wait.until(EC.element_to_be_clickable((By.ID, 'downloadButton')))
+        download_button = wait.until(
+            EC.element_to_be_clickable((By.ID, 'downloadButton')))
         safe_click(driver, download_button)
 
-    except TimeoutException:
-        raise RuntimeError("Download elements not found (timeout)")
+    except TimeoutException as exc:
+        raise RuntimeError("Download elements not found (timeout)") from exc
 
 
 # ==============================
@@ -122,7 +147,7 @@ def download_file(driver):
 # ==============================
 
 if __name__ == "__main__":
-    driver = create_driver()
+    driver = create_driver("my_files")
     try:
         login(driver)
         fill_text_box_form(driver)   # comment this out if not needed
