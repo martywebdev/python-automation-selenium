@@ -18,7 +18,8 @@ load_dotenv()
 
 USERNAME = os.getenv("APP_USERNAME")
 PASSWORD = os.getenv("APP_PASSWORD")
-CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "chromedriver-win64/chromedriver.exe")
+CHROMEDRIVER_PATH = os.getenv(
+    "CHROMEDRIVER_PATH", "chromedriver-win64/chromedriver.exe")
 WAIT_SECONDS = int(os.getenv("WAIT_SECONDS", "10"))
 
 if not USERNAME or not PASSWORD:
@@ -31,23 +32,32 @@ if not USERNAME or not PASSWORD:
 # ==============================
 
 class DemoQABot:
-    def __init__(self, username: str, password: str, driver_path: str = CHROMEDRIVER_PATH, wait_seconds: int = WAIT_SECONDS):
+    def __init__(self, username: str, password: str, driver_path: str = CHROMEDRIVER_PATH, wait_seconds: int = WAIT_SECONDS, download_subdir: str = "downloads", ):
         self.username = username
         self.password = password
         self.wait_seconds = wait_seconds
+        self.download_path = os.path.join(os.getcwd(), download_subdir)
+
+        # make sure the directory exists
+        os.makedirs(self.download_path, exist_ok=True)
+
         self.driver = self._create_driver(driver_path)
         self.wait = WebDriverWait(self.driver, wait_seconds)
 
     def _create_driver(self, path: str):
         options = Options()
         options.add_argument("--disable-search-engine-choice-screen")
+        # configure download folder
+        prefs = {"download.default_directory": self.download_path}
+        options.add_experimental_option("prefs", prefs)
         service = Service(path)
         return webdriver.Chrome(service=service, options=options)
 
     def safe_click(self, element):
         """Scroll into view → normal click → fallback JS click if blocked."""
         try:
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", element)
             element.click()
         except ElementClickInterceptedException:
             self.driver.execute_script("arguments[0].click();", element)
@@ -60,11 +70,15 @@ class DemoQABot:
         self.driver.get("https://demoqa.com/login")
 
         try:
-            user_field = self.wait.until(EC.visibility_of_element_located((By.ID, "userName")))
-            pass_field = self.wait.until(EC.visibility_of_element_located((By.ID, "password")))
-            login_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "login")))
+            user_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "userName")))
+            pass_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "password")))
+            login_btn = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "login")))
         except TimeoutException as exc:
-            raise RuntimeError("Login page elements not found (timeout)") from exc
+            raise RuntimeError(
+                "Login page elements not found (timeout)") from exc
 
         user_field.clear()
         user_field.send_keys(self.username)
@@ -74,17 +88,24 @@ class DemoQABot:
 
     def fill_text_box_form(self):
         try:
-            elements_panel = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div.element-group")))
+            elements_panel = self.wait.until(EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "div.element-group")))
             self.safe_click(elements_panel)
 
-            text_box_item = self.wait.until(EC.element_to_be_clickable((By.ID, "item-0")))
+            text_box_item = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "item-0")))
             self.safe_click(text_box_item)
 
-            fullname_field = self.wait.until(EC.visibility_of_element_located((By.ID, "userName")))
-            email_field = self.wait.until(EC.visibility_of_element_located((By.ID, "userEmail")))
-            current_address_field = self.wait.until(EC.visibility_of_element_located((By.ID, "currentAddress")))
-            permanent_address_field = self.wait.until(EC.visibility_of_element_located((By.ID, "permanentAddress")))
-            submit_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "submit")))
+            fullname_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "userName")))
+            email_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "userEmail")))
+            current_address_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "currentAddress")))
+            permanent_address_field = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "permanentAddress")))
+            submit_btn = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "submit")))
         except TimeoutException as exc:
             raise RuntimeError("Form elements not found (timeout)") from exc
 
@@ -95,22 +116,27 @@ class DemoQABot:
         current_address_field.clear()
         current_address_field.send_keys("Matatag Street Pinyahan Quezon City")
         permanent_address_field.clear()
-        permanent_address_field.send_keys("Matatag Street Pinyahan Quezon City")
+        permanent_address_field.send_keys(
+            "Matatag Street Pinyahan Quezon City")
 
         self.safe_click(submit_btn)
 
     def download_file(self):
         try:
-            elements_group = self.driver.find_elements(By.CSS_SELECTOR, "div.element-group")
+            elements_group = self.driver.find_elements(
+                By.CSS_SELECTOR, "div.element-group")
             self.safe_click(elements_group[0])  # open the first group
 
-            links = self.wait.until(EC.element_to_be_clickable((By.ID, "item-7")))
+            links = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "item-7")))
             self.safe_click(links)
 
-            download_button = self.wait.until(EC.element_to_be_clickable((By.ID, "downloadButton")))
+            download_button = self.wait.until(
+                EC.element_to_be_clickable((By.ID, "downloadButton")))
             self.safe_click(download_button)
         except TimeoutException as exc:
-            raise RuntimeError("Download elements not found (timeout)") from exc
+            raise RuntimeError(
+                "Download elements not found (timeout)") from exc
 
     def close(self):
         self.driver.quit()
