@@ -86,7 +86,13 @@ class DemoQABot:
         pass_field.send_keys(self.password)
         self.safe_click(login_btn)
 
-    def fill_text_box_form(self):
+    def fill_text_box_form(
+        self,
+        fullname: str = "John Smith",
+        email: str = "john@gmail.com",
+        current_address: str = "Matatag Street Pinyahan Quezon City",
+        permanent_address: str = "Matatag Street Pinyahan Quezon City",
+    ):
         try:
             elements_panel = self.wait.until(EC.element_to_be_clickable(
                 (By.CSS_SELECTOR, "div.element-group")))
@@ -109,15 +115,18 @@ class DemoQABot:
         except TimeoutException as exc:
             raise RuntimeError("Form elements not found (timeout)") from exc
 
+        # Fill fields
         fullname_field.clear()
-        fullname_field.send_keys("John Smith")
+        fullname_field.send_keys(fullname)
+
         email_field.clear()
-        email_field.send_keys("john@gmail.com")
+        email_field.send_keys(email)
+
         current_address_field.clear()
-        current_address_field.send_keys("Matatag Street Pinyahan Quezon City")
+        current_address_field.send_keys(current_address)
+
         permanent_address_field.clear()
-        permanent_address_field.send_keys(
-            "Matatag Street Pinyahan Quezon City")
+        permanent_address_field.send_keys(permanent_address)
 
         self.safe_click(submit_btn)
 
